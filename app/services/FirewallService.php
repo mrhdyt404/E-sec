@@ -28,9 +28,23 @@ class FirewallService {
         }
     }
 
-    public static function unblock(string $ip): void {
-        if (!self::isBlocked($ip)) return;
-        exec("/usr/bin/sudo /sbin/ipset del blacklist " . escapeshellarg($ip) . " 2>&1");
+    public static function unblock(PDO $pdo, string $ip, string $reason = ''): void {
+        exec("/usr/bin/sudo /usr/local/bin/firewall-unblock.sh " . escapeshellarg($ip));
+        $stmt = $pdo->prepare("UPDATE blocked_ips SET active=0, removed_at=NOW(), reason=? WHERE ip=? AND active=1");
+        $stmt->execute([$reason, $ip]);
+    }
+
+     // Count total blocked IP
+    public static function countBlocked(PDO $pdo): int {
+        $stmt = $pdo->query("SELECT COUNT(*) as total FROM blocked_ips");
+        $row = $stmt->fetch();
+        return (int) $row['total'];
+    }
+
+    // Optional: daftar IP yang diblokir
+    public static function listBlocked(PDO $pdo): array {
+        $stmt = $pdo->query("SELECT * FROM blocked_ips ORDER BY ts DESC");
+        return $stmt->fetchAll();
     }
 
     /**

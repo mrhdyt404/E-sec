@@ -16,313 +16,17 @@ if (!($_SESSION['auth'] ?? false)) {
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Roboto+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./assets/css/dashboard.css">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: 'Segoe UI', 'Courier New', monospace;
+        /* Inline style untuk font family */
+        body, h1, h2, h3, h4 {
+            font-family: 'Roboto Mono', 'Segoe UI', monospace;
         }
-
-        :root {
-            --primary-color: #0c7b93;
-            --secondary-color: #00d2d3;
-            --danger-color: #ff4757;
-            --warning-color: #ffa502;
-            --success-color: #2ed573;
-            --dark-bg: #0a1929;
-            --card-bg: #132f4c;
-            --text-primary: #e6f7ff;
-            --text-secondary: #a0c8e8;
-            --border-color: #1e4976;
-            --cyber-green: #00ff9d;
-            --cyber-blue: #00b8ff;
-        }
-
-        body {
-            background-color: var(--dark-bg);
-            color: var(--text-primary);
-            min-height: 100vh;
-            overflow-x: hidden;
-            line-height: 1.6;
-        }
-
-        /* Header Styles */
-        .header {
-            background: linear-gradient(135deg, #0a1929 0%, #132f4c 100%);
-            padding: 1.2rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .header::before {
-            content: "";
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: linear-gradient(90deg, var(--cyber-green), var(--cyber-blue));
-        }
-
-        .logo-container {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .logo {
-            font-size: 1.8rem;
-            color: var(--cyber-green);
-            animation: pulse 2s infinite;
-        }
-
-        @keyframes pulse {
-            0% { opacity: 1; }
-            50% { opacity: 0.7; }
-            100% { opacity: 1; }
-        }
-
-        .header h1 {
-            font-size: 1.8rem;
-            background: linear-gradient(to right, var(--cyber-green), var(--cyber-blue));
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            letter-spacing: 0.5px;
-        }
-
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .user-icon {
-            background-color: var(--card-bg);
-            width: 40px;
-            height: 40px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border: 1px solid var(--border-color);
-        }
-
-        .logout-btn {
-            background-color: transparent;
-            color: var(--text-primary);
-            border: 1px solid var(--border-color);
-            padding: 8px 16px;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: all 0.3s;
-            font-weight: 500;
-        }
-
-        .logout-btn:hover {
-            background-color: rgba(255, 71, 87, 0.1);
-            border-color: var(--danger-color);
-            color: var(--danger-color);
-        }
-
-        /* Main Container */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            padding: 2rem;
-        }
-
-        /* Dashboard Info */
-        .dashboard-info {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 1.5rem;
-            margin-bottom: 2.5rem;
-        }
-
-        .info-card {
-            background-color: var(--card-bg);
-            border-radius: 8px;
-            padding: 1.5rem;
-            border-left: 4px solid var(--primary-color);
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            transition: transform 0.3s, box-shadow 0.3s;
-        }
-
-        .info-card:hover {
-            transform: translateY(-5px);
-            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
-        }
-
-        .info-card h3 {
-            color: var(--cyber-green);
-            margin-bottom: 0.8rem;
-            font-size: 1.2rem;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .info-card p {
-            color: var(--text-secondary);
-            font-size: 0.95rem;
-        }
-
-        /* Alert Box */
-        .alert-box {
-            background-color: rgba(255, 71, 87, 0.1);
-            border: 1px solid rgba(255, 71, 87, 0.3);
-            border-radius: 8px;
-            padding: 1.2rem;
-            margin-bottom: 2rem;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        .alert-icon {
-            color: var(--danger-color);
-            font-size: 1.5rem;
-        }
-
-        .alert-box p {
-            color: var(--text-primary);
-        }
-
-        /* Charts Container */
-        .charts-container {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-bottom: 2rem;
-        }
-
-        .chart-card {
-            background-color: var(--card-bg);
-            border-radius: 8px;
-            padding: 1.5rem;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            border: 1px solid var(--border-color);
-        }
-
-        .chart-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 1.2rem;
-        }
-
-        .chart-header h3 {
-            color: var(--text-primary);
-            font-size: 1.2rem;
-        }
-
-        .chart-info {
-            background-color: rgba(12, 123, 147, 0.2);
-            border-radius: 4px;
-            padding: 6px 10px;
-            font-size: 0.8rem;
-            color: var(--text-secondary);
-            cursor: help;
-            position: relative;
-        }
-
-        .chart-info:hover .tooltip {
-            display: block;
-        }
-
-        .tooltip {
-            display: none;
-            position: absolute;
-            background-color: var(--dark-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            padding: 10px;
-            width: 250px;
-            top: 100%;
-            right: 0;
-            z-index: 10;
-            font-size: 0.85rem;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        }
-
-        .chart-wrapper {
-            position: relative;
-            height: 250px;
-            width: 100%;
-        }
-
-        canvas {
-            width: 100% !important;
-            height: 100% !important;
-        }
-
-        /* Footer */
-        .footer {
-            text-align: center;
-            padding: 1.5rem;
-            border-top: 1px solid var(--border-color);
-            color: var(--text-secondary);
-            font-size: 0.9rem;
-            margin-top: 2rem;
-        }
-
-        .status-indicator {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            margin-top: 1rem;
-        }
-
-        .indicator {
-            width: 12px;
-            height: 12px;
-            border-radius: 50%;
-            background-color: var(--success-color);
-            animation: blink 1.5s infinite;
-        }
-
-        @keyframes blink {
-            0% { opacity: 1; }
-            50% { opacity: 0.5; }
-            100% { opacity: 1; }
-        }
-
-        /* Responsive Styles */
-        @media (max-width: 768px) {
-            .header {
-                flex-direction: column;
-                gap: 15px;
-                padding: 1rem;
-            }
-
-            .container {
-                padding: 1rem;
-            }
-
-            .charts-container {
-                grid-template-columns: 1fr;
-            }
-
-            .dashboard-info {
-                grid-template-columns: 1fr;
-            }
-        }
-
-        @media (max-width: 480px) {
-            .chart-card {
-                padding: 1rem;
-            }
-
-            .chart-wrapper {
-                height: 200px;
-            }
+        h1, .chart-header h3 {
+            font-family: 'Orbitron', sans-serif;
         }
     </style>
 </head>
@@ -367,6 +71,29 @@ if (!($_SESSION['auth'] ?? false)) {
             <div>
                 <p><strong>Perhatian:</strong> Dashboard ini menampilkan data sensitif keamanan jaringan. Hanya personel yang berwenang yang boleh mengakses informasi ini. Setiap aktivitas mencurigakan akan ditandai dengan notifikasi.</p>
             </div>
+        </div>
+
+        <div class="summary-grid">
+        <div class="summary-card green">
+            <h4>Total Requests (24h)</h4>
+            <span id="sumRequests">-</span>
+        </div>
+        <div class="summary-card red">
+            <h4>Blocked IP</h4>
+            <span id="sumBlocked">-</span>
+        </div>
+        <div class="summary-card orange">
+            <h4>Suspicious IP</h4>
+            <span id="sumSuspicious">-</span>
+        </div>
+        <div class="summary-card purple">
+            <h4>ML Anomaly</h4>
+            <span id="sumAnomaly">-</span>
+        </div>
+        <div class="summary-card blue">
+            <h4>Avg Response</h4>
+            <span id="sumLatency">- ms</span>
+        </div>
         </div>
 
         <div class="status-indicator">
@@ -421,8 +148,56 @@ if (!($_SESSION['auth'] ?? false)) {
             </div>
         </div>
 
-        <!-- <div id="map" style="height:400px"></div> -->
+        <div class="chart-card">
+        <div class="chart-header">
+            <h3><i class="fas fa-skull-crossbones"></i> Active Threats</h3>
+        </div>
+        <input id="ipFilter" placeholder="Filter IP..." style="padding:8px;width:200px">
+        <table style="width:100%;font-size:.85rem">
+            <thead>
+            <tr><th>IP</th><th>State</th><th>Score</th><th>Reason</th><th>Last Seen</th></tr>
+            </thead>
+            <tbody id="threatTable"></tbody>
+        </table>
+        </div>
+<br>
+<div class="chart-card">
+  <div class="chart-header">
+    <h3><i class="fas fa-search"></i> Investigasi IP</h3>
+  </div>
+  <input id="investigateIp" placeholder="Masukkan IP..." style="padding:8px;width:200px">
+  <button onclick="investigate()">Investigate</button>
+  <pre id="investigationResult" style="margin-top:10px;font-size:.8rem;max-height:300px;overflow:auto"></pre>
+</div>
+<br>
+<div class="chart-card">
+  <div class="chart-header">
+    <h3><i class="fas fa-user-shield"></i> Manual Control</h3>
+  </div>
+  <input id="controlIp" placeholder="IP..." style="padding:8px;width:200px">
+  <button onclick="manualBlock()">Block</button>
+  <button onclick="manualWhitelist()">Whitelist</button>
+  <button onclick="markFalsePositive()">False Positive</button>
+</div>
+<br>
+<div class="chart-card">
+  <div class="chart-header">
+    <h3><i class="fas fa-clipboard-list"></i> Audit Trail</h3>
+    <button onclick="loadAudit()">Refresh</button>
+    <button onclick="exportAudit()">Export CSV</button>
+  </div>
+  <div style="max-height:300px;overflow:auto">
+    <table style="width:100%">
+      <thead><tr><th>Waktu</th><th>IP</th><th>Aksi</th><th>Reason</th><th>User</th></tr></thead>
+      <tbody id="auditTable"></tbody>
+    </table>
+  </div>
+</div>
 
+
+
+        <!-- <div id="map" style="height:400px"></div> -->
+<br>
         <div class="chart-card">
             <div class="chart-header">
                 <h3><i class="fas fa-terminal"></i> Log Request Realtime</h3>
@@ -433,14 +208,15 @@ if (!($_SESSION['auth'] ?? false)) {
                     </div>
                 </div>
             </div>
-            <div style="overflow-y:auto; max-height:300px; text-align:center;">
-                <table id="logTable" style="width:100%; border-collapse: collapse; font-size:0.85rem; text-align:center;">
+            <div style="overflow-y:auto; max-height:300px;">
+                <table id="logTable" style="width:100%; border-collapse: collapse; font-size:0.85rem;">
                     <thead>
                         <tr style="background-color: var(--card-bg); color: var(--cyber-green);">
                             <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">Waktu</th>
                             <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">IP Address</th>
                             <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">Status</th>
-                            <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">Info</th>
+                            <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">method</th>
+                            <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">path</th>
                         </tr>
                     </thead>
                     <tbody id="logBody">
@@ -457,20 +233,139 @@ if (!($_SESSION['auth'] ?? false)) {
 
     <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
     <script>
-    fetch('/api/geo-heatmap').then(r=>r.json()).then(data=>{
-    const map = L.map('map').setView([0,0],2);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    function createBinaryRain() {
+        const container = document.createElement('div');
+        container.className = 'binary-rain';
+        document.body.appendChild(container);
+        
+        for(let i = 0; i < 50; i++) {
+            const digit = document.createElement('div');
+            digit.className = 'binary-digit';
+            digit.textContent = Math.random() > 0.5 ? '1' : '0';
+            digit.style.left = `${Math.random() * 100}vw`;
+            digit.style.animationDuration = `${Math.random() * 3 + 2}s`;
+            digit.style.animationDelay = `${Math.random() * 2}s`;
+            digit.style.opacity = Math.random() * 0.3 + 0.1;
+            container.appendChild(digit);
+        }
+    }
+    
+    if(window.innerWidth > 768) {
+        createBinaryRain();
+    }
+</script>
+<script>
+const investigateIp = document.getElementById('investigateIp');
+const investigationResult = document.getElementById('investigationResult');
+const controlIp = document.getElementById('controlIp');
+const auditTable = document.getElementById('auditTable');
+const threatTable = document.getElementById('threatTable');
+const logBody = document.getElementById('logBody');
+const sumRequests = document.getElementById('sumRequests');
+const sumBlocked = document.getElementById('sumBlocked');
+const sumSuspicious = document.getElementById('sumSuspicious');
+const sumAnomaly = document.getElementById('sumAnomaly');
+const sumLatency = document.getElementById('sumLatency');
 
-    data.forEach(d=>{
-        if (!d.lat || !d.lng) return;
-        L.circle([d.lat,d.lng], {
-        radius: d.attacks * 5000,
-        fillOpacity: 0.4
-        }).addTo(map).bindPopup(`${d.country}: ${d.attacks}`);
+// ===== Investigate IP =====
+function investigate(){
+  const ip = investigateIp.value;
+  if(!ip) return;
+  fetch(`/api/investigate.php?ip=${ip}`)
+    .then(r => r.json())
+    .then(d => {
+      investigationResult.textContent = JSON.stringify(d,null,2);
     });
+}
+
+// ===== Manual Control =====
+function manualBlock(){
+  fetch('/api/block.php',{
+    method:'POST',
+    body: JSON.stringify({ip: controlIp.value}),
+    headers:{'Content-Type':'application/json'}
+  });
+}
+
+function manualWhitelist(){
+  fetch('/api/whitelist.php',{
+    method:'POST',
+    body: JSON.stringify({ip: controlIp.value}),
+    headers:{'Content-Type':'application/json'}
+  });
+}
+
+function markFalsePositive(){
+  fetch('/api/false-positive.php',{
+    method:'POST',
+    body: JSON.stringify({ip: controlIp.value}),
+    headers:{'Content-Type':'application/json'}
+  });
+}
+
+// ===== Load Audit Trail =====
+function loadAudit(){
+  fetch('/api/audit.php')
+    .then(r => r.json())
+    .then(list => {
+      auditTable.innerHTML = '';
+      list.forEach(a=>{
+        auditTable.innerHTML += `<tr>
+          <td>${a.ts}</td><td>${a.ip}</td><td>${a.action}</td><td>${a.reason}</td><td>${a.actor}</td>
+        </tr>`;
+      });
     });
-    </script>
-   <script>
+}
+
+// ===== Load Active Threats =====
+function loadThreats(){
+  fetch('/api/threats.php')
+    .then(r => r.json())
+    .then(list => {
+      threatTable.innerHTML = '';
+      list.forEach(t=>{
+        threatTable.innerHTML += `<tr>
+          <td>${t.ip}</td><td>${t.state}</td><td>${t.score}</td>
+          <td>${t.reason}</td><td>${t.last_seen}</td>
+        </tr>`;
+      });
+    });
+}
+
+// ===== Load Summary Stats =====
+function loadSummary(){
+  fetch('/api/summary.php')
+    .then(r => r.json())
+    .then(d => {
+      sumRequests.innerText = d.requests;
+      sumBlocked.innerText = d.blocked;
+      sumSuspicious.innerText = d.suspicious;
+      sumAnomaly.innerText = d.anomaly;
+      sumLatency.innerText = d.avg_latency;
+    });
+}
+
+// ===== Filter Log by IP =====
+document.getElementById('ipFilter').addEventListener('input', e=>{
+  const v = e.target.value;
+  [...logBody.rows].forEach(r=>{
+    r.style.display = r.cells[1].innerText.includes(v) ? '' : 'none';
+  });
+});
+
+// ===== Polling periodik untuk semua stats dan tables =====
+function startPolling(){
+  loadSummary();
+  loadAudit();
+  loadThreats();
+}
+
+// Update setiap 5 detik
+setInterval(startPolling, 5000);
+startPolling(); // load pertama
+</script>
+
+<script>
     // ===== Initialize charts with cyber security theme =====
     const trafficCtx = document.getElementById('trafficChart').getContext('2d');
     const statusCtx  = document.getElementById('statusChart').getContext('2d');
@@ -549,8 +444,8 @@ if (!($_SESSION['auth'] ?? false)) {
     ws.onerror = e => console.error("WebSocket error:", e);
 
     // Data structures for tracking
-    let ipCounts = {};
-    let statusCounts = {};
+    var ipCounts = {};
+    var statusCounts = {};
 
     // ---- Function to add log entry ----
     function addLogEntry(data) {
@@ -568,7 +463,8 @@ if (!($_SESSION['auth'] ?? false)) {
             <td style="padding:6px; border-bottom:1px solid var(--border-color);">${timeLabel}</td>
             <td style="padding:6px; border-bottom:1px solid var(--border-color);">${data.ip}</td>
             <td style="padding:6px; border-bottom:1px solid var(--border-color); color:${statusColor}; font-weight:600;">${data.status}</td>
-            <td style="padding:6px; border-bottom:1px solid var(--border-color);">${data.url || '-'}</td>
+            <td style="padding:6px; border-bottom:1px solid var(--border-color);">${data.method || '-'}</td>
+            <td style="padding:6px; border-bottom:1px solid var(--border-color);">${data.path || '-'}</td>
         `;
         logBody.prepend(tr);
         if (logBody.rows.length > 50) logBody.removeChild(logBody.lastChild);

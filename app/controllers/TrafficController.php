@@ -13,6 +13,10 @@ require __DIR__ . '/../services/BehaviorService.php';
 require __DIR__ . '/../services/MLAnomalyService.php';
 require __DIR__ . '/../services/AutoBlockService.php';
 require __DIR__ . '/../services/FirewallService.php';
+require __DIR__ . '/../services/BlockAuditService.php';
+require __DIR__ . '/../services/ThresholdService.php';
+require __DIR__ . '/../services/AuditService.php';
+
 
 class TrafficController {
 
@@ -59,34 +63,41 @@ class TrafficController {
             // 1️⃣ Behavior
             $behaviorScore = BehaviorService::update($pdo, $d);
 
-            // 2️⃣ Reputation + anomaly
+            // 2️⃣ Reputation & anomaly
+            $state = ReputationService::getState($pdo, $ip);
             ReputationService::update($pdo, $d);
-            AnomalyService::check($pdo, $d);
+            $user = $data['user'] ?? 'system';
+            AuditService::log($pdo, $ip, 'investigate', 'view',  $user);
 
-            // 3️⃣ ML scoring
+            // ================= SYNC TO THREATS =================
+            AnomalyService::check($pdo, $d);
+            if (class_exists('ThreatService')) {
+                ThreatService::syncThreats($pdo);
+            }
+
+
+
+            // 3️⃣ ML
             $mlScore = MLAnomalyService::score($d);
 
-            // 4️⃣ Bruteforce detector (signal only)
-            $isBruteforce = FirewallService::maybeBlock($pdo, $ip);
+            // 4️⃣ Signals
+            $isBruteforce = FirewallService::maybeBlock($pdo, $ip); // signal only
+            $isScanner    = BehaviorService::isScanner($d);
+            $is500Flood   = BehaviorService::isServerErrorFlood($pdo, $ip);
+            $isBehavior   = BehaviorService::isMalicious($pdo, $ip);
 
-            // 5️⃣ AutoBlock scoring
+            // 5️⃣ AutoBlock decision
             $autoBlock = AutoBlockService::shouldBlock($pdo, $ip, $behaviorScore, $mlScore);
 
-            // 6️⃣ Behavior explicit malicious?
-            $isBehaviorMalicious = BehaviorService::isMalicious($pdo, $ip);
-            $isScanner   = BehaviorService::isScanner($d);
-            $is500Flood  = BehaviorService::isServerErrorFlood($pdo, $ip);
-            $isBehavior  = BehaviorService::isMalicious($pdo, $ip);
-
-            // 7️⃣ Final decision: only block if really malicious
-            $isMalicious =
+            // 6️⃣ Final malicious decision
+            $isMalicious = (
                 $isBehavior ||
-                $isBehaviorMalicious ||
                 $autoBlock ||
-                ($mlScore < -0.5) ||
-                $isBruteforce ||
                 $isScanner ||
-                $is500Flood;
+                $is500Flood ||
+                $isBruteforce ||
+                ($mlScore < -0.5)
+            );
 
             if ($isMalicious) {
                 FirewallService::block($pdo, $ip, 3600, 'malicious');
@@ -94,6 +105,22 @@ class TrafficController {
                 $data['blocked'] = true;
             }
 
+            // 7️⃣ Reputation escalation (only if not yet blocked)
+            if (!$isMalicious) {
+                $score = $behaviorScore + max(0, -$mlScore);
+
+                if ($state === 'normal' && $score > 2) {
+                    ReputationService::setState($pdo, $ip, 'suspicious');
+                }
+
+                if ($state === 'suspicious' && $score > 4) {
+                    ReputationService::setState($pdo, $ip, 'quarantine');
+                }
+
+                if ($state === 'quarantine' && $score > 6) {
+                    FirewallService::block($pdo, $ip, 3600, 'escalation');
+                }
+            }
         }
 
         // 💾 Save traffic log
@@ -117,7 +144,7 @@ class TrafficController {
             $data['city']
         ]);
 
-        // 🚀 Push to WebSocket
+        // 🚀 Push WS
         $data['internal'] = true;
         foreach ($ips as $ip) {
             if (ThrottleService::allow($pdo, $ip)) {
@@ -126,8 +153,8 @@ class TrafficController {
             }
         }
 
-        // 🚨 Alert ML anomaly
-        if (isset($mlScore) && $mlScore < -0.4) {
+        // 🚨 ML alert
+        if ($mlScore < -0.4) {
             AlertService::sendFCM("🚨 ML Anomaly", "{$data['ip']} {$data['path']} score=$mlScore");
         }
 

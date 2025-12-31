@@ -1,5 +1,4 @@
 <?php
-
 class AnomalyService {
 
     public static function check(PDO $pdo, array $d): void {
@@ -11,6 +10,7 @@ class AnomalyService {
             'rule_score' => 0
         ];
 
+        // ================= ML SCORING =================
         $cmd = "echo " . escapeshellarg(json_encode($d)) . " | python3 /opt/ml/ml_score.py 2>/dev/null";
         $json = shell_exec($cmd);
 
@@ -57,7 +57,7 @@ class AnomalyService {
             $flagged = 1;
         }
 
-        // ================= STORE =================
+        // ================= STORE ANOMALY =================
         $stmt = $pdo->prepare("
             INSERT INTO anomalies
             (ts, ip, path, type, score, description, anomaly_score, flagged)
@@ -74,6 +74,33 @@ class AnomalyService {
             $flagged
         ]);
 
+        // ================= INSERT/UPDATE THREATS =================
+        if ($flagged) {
+            $state = match($type) {
+                'ml_anomaly', 'http_error' => 'anomaly',
+                'normal' => 'cleared',
+                default => 'suspicious',
+            };
+
+            $stmtThreat = $pdo->prepare("
+                INSERT INTO threats
+                (ip, state, score, reason, last_seen, created_at)
+                VALUES (:ip, :state, :score, :reason, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE
+                    state = VALUES(state),
+                    score = VALUES(score),
+                    reason = VALUES(reason),
+                    last_seen = VALUES(last_seen)
+            ");
+
+            $stmtThreat->execute([
+                ':ip'     => $d['ip'] ?? 'unknown',
+                ':state'  => $state,
+                ':score'  => $finalScore,
+                ':reason' => json_encode($ml, JSON_UNESCAPED_SLASHES)
+            ]);
+        }
+
         // ================= ALERT =================
         if ($flagged && class_exists('AlertService')) {
             AlertService::sendFCM(
@@ -82,7 +109,8 @@ class AnomalyService {
             );
         }
         
-        if ($flagged && $finalScore >= 1.5) {
+        // ================= AUTO BLOCK =================
+        if ($flagged && $finalScore >= 1.5 && class_exists('AutoBlockService')) {
             AutoBlockService::block(
                 $pdo,
                 $d['ip'],
@@ -91,5 +119,12 @@ class AnomalyService {
                 $type
             );
         }
+
+        // ================= DEBUG LOG =================
+        file_put_contents(
+            '/tmp/anomaly_debug.log',
+            json_encode($d).PHP_EOL,
+            FILE_APPEND
+        );
     }
 }
