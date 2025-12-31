@@ -1,0 +1,15 @@
+Client → collect()
+   ↓
+Auth OK?
+   ↓
+RateLimit OK?
+   ↓
+Valid payload?
+   ↓
+Services (Geo, Reputation, Blockchain, Anomaly)
+   ↓
+Save log
+   ↓
+Throttle WS (per IP / detik)
+   ↓
+Broadcast jika allowed
