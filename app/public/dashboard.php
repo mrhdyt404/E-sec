@@ -433,8 +433,8 @@ if (!($_SESSION['auth'] ?? false)) {
                     </div>
                 </div>
             </div>
-            <div style="overflow-y:auto; max-height:300px;">
-                <table id="logTable" style="width:100%; border-collapse: collapse; font-size:0.85rem;">
+            <div style="overflow-y:auto; max-height:300px; text-align:center;">
+                <table id="logTable" style="width:100%; border-collapse: collapse; font-size:0.85rem; text-align:center;">
                     <thead>
                         <tr style="background-color: var(--card-bg); color: var(--cyber-green);">
                             <th style="padding: 8px; border-bottom: 1px solid var(--border-color);">Waktu</th>

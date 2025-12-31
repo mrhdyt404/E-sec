@@ -2,6 +2,7 @@
 ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
+
 require __DIR__ . '/../services/GeoIPService.php';
 require __DIR__ . '/../services/ReputationService.php';
 require __DIR__ . '/../services/BlockchainService.php';
@@ -12,7 +13,6 @@ require __DIR__ . '/../services/BehaviorService.php';
 require __DIR__ . '/../services/MLAnomalyService.php';
 require __DIR__ . '/../services/AutoBlockService.php';
 require __DIR__ . '/../services/FirewallService.php';
-
 
 class TrafficController {
 
@@ -33,7 +33,7 @@ class TrafficController {
             exit;
         }
 
-        // ⚡ Rate limit — sebelum proses berat
+        // ⚡ Rate limit
         RateLimitService::check($pdo, $apiKey);
 
         // 📥 Payload
@@ -49,40 +49,62 @@ class TrafficController {
         $data['country'] = $geo['country'] ?? null;
         $data['city']    = $geo['city'] ?? null;
 
-        // 🔄 Services
-        $ips = $data['ip'];
-        if (!is_array($ips)) $ips = [$ips];
-
+        $ips = is_array($data['ip']) ? $data['ip'] : [$data['ip']];
         $data['blocked'] = false;
 
         foreach ($ips as $ip) {
-            // Update behavior per IP
             $d = $data;
             $d['ip'] = $ip;
+
+            // 1️⃣ Behavior
             $behaviorScore = BehaviorService::update($pdo, $d);
 
-            // 🔄 Services lain (opsional bisa dipanggil sekali di awal jika tidak tergantung IP)
+            // 2️⃣ Reputation + anomaly
             ReputationService::update($pdo, $d);
-            BlockchainService::add($pdo, $d);
             AnomalyService::check($pdo, $d);
 
-            // ⚡ Firewall block & auto-block
-            FirewallService::block($pdo, $ip, 3600);
-            if (BehaviorService::isMalicious($pdo, $ip) || ($data['status'] ?? 0) === 401) {
-                FirewallService::maybeBlock($ip);
+            // 3️⃣ ML scoring
+            $mlScore = MLAnomalyService::score($d);
+
+            // 4️⃣ Bruteforce detector (signal only)
+            $isBruteforce = FirewallService::maybeBlock($pdo, $ip);
+
+            // 5️⃣ AutoBlock scoring
+            $autoBlock = AutoBlockService::shouldBlock($pdo, $ip, $behaviorScore, $mlScore);
+
+            // 6️⃣ Behavior explicit malicious?
+            $isBehaviorMalicious = BehaviorService::isMalicious($pdo, $ip);
+            $isScanner   = BehaviorService::isScanner($d);
+            $is500Flood  = BehaviorService::isServerErrorFlood($pdo, $ip);
+            $isBehavior  = BehaviorService::isMalicious($pdo, $ip);
+
+            // 7️⃣ Final decision: only block if really malicious
+            $isMalicious =
+                $isBehavior ||
+                $isBehaviorMalicious ||
+                $autoBlock ||
+                ($mlScore < -0.5) ||
+                $isBruteforce ||
+                $isScanner ||
+                $is500Flood;
+
+            if ($isMalicious) {
+                FirewallService::block($pdo, $ip, 3600, 'malicious');
+                AutoBlockService::block($pdo, $ip, $behaviorScore, 'malicious', 'auto');
                 $data['blocked'] = true;
             }
+
         }
-        // 💾 Save log
+
+        // 💾 Save traffic log
         $stmt = $pdo->prepare("
             INSERT INTO traffic_logs 
             (ts, ip, method, path, status, response_time_ms, bytes, user_agent, referrer, server, country, city)
             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
         ");
-
         $stmt->execute([
             $data['timestamp'] ?? date('Y-m-d H:i:s'),
-            is_array($data['ip']) ? implode(',', $data['ip']) : $data['ip'],
+            implode(',', $ips),
             $data['method'] ?? '',
             $data['path'] ?? '',
             $data['status'] ?? 0,
@@ -95,24 +117,21 @@ class TrafficController {
             $data['city']
         ]);
 
-        // 🚀 Push ke WS
+        // 🚀 Push to WebSocket
         $data['internal'] = true;
-
         foreach ($ips as $ip) {
             if (ThrottleService::allow($pdo, $ip)) {
                 $this->pushRealtime($data);
-                break; // cukup sekali push untuk semua IP
+                break;
             }
         }
 
-        $mlScore = MLAnomalyService::score($data);
-        // MLAnomalyService::store($pdo, $data, $mlScore);
-
-        if ($mlScore < -0.4) {
+        // 🚨 Alert ML anomaly
+        if (isset($mlScore) && $mlScore < -0.4) {
             AlertService::sendFCM("🚨 ML Anomaly", "{$data['ip']} {$data['path']} score=$mlScore");
         }
 
-        echo json_encode(["status" => "ok"]);
+        echo json_encode(["status" => "ok", "blocked" => $data['blocked']]);
         exit;
     }
 
@@ -128,11 +147,10 @@ class TrafficController {
         curl_exec($ch);
         curl_close($ch);
     }
-    
 }
 
 class ThrottleService {
-    const INTERVAL = 1; // 1 detik per IP
+    const INTERVAL = 1;
 
     public static function allow(PDO $pdo, string $ip): bool {
         $now = time();
@@ -146,11 +164,11 @@ class ThrottleService {
         }
 
         $stmt = $pdo->prepare("
-          INSERT INTO ws_throttle (ip,last_push)
-          VALUES (?,?)
-          ON DUPLICATE KEY UPDATE last_push=VALUES(last_push)
+            INSERT INTO ws_throttle (ip,last_push)
+            VALUES (?,?)
+            ON DUPLICATE KEY UPDATE last_push=VALUES(last_push)
         ");
-        $stmt->execute([$ip,$now]);
+        $stmt->execute([$ip, $now]);
 
         return true;
     }
