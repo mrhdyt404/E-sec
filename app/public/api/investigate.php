@@ -13,7 +13,7 @@ if (!$ip) {
     exit;
 }
 
-$requests = $pdo->prepare("SELECT ts, path, status FROM traffic_logs WHERE ip=:ip ORDER BY ts DESC LIMIT 50");
+$requests = $pdo->prepare("SELECT ts, ip, method, path, status, response_time_ms, bytes, user_agent, server, country, city  FROM traffic_logs WHERE ip=:ip ORDER BY ts DESC LIMIT 50");
 $requests->execute(['ip'=>$ip]);
 
 echo json_encode($requests->fetchAll(PDO::FETCH_ASSOC));

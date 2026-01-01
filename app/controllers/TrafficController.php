@@ -75,8 +75,6 @@ class TrafficController {
                 ThreatService::syncThreats($pdo);
             }
 
-
-
             // 3️⃣ ML
             $mlScore = MLAnomalyService::score($d);
 

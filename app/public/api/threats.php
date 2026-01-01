@@ -9,7 +9,7 @@ header('Content-Type: application/json');
 
 $pdo = Database::connect();
 
-$list = $pdo->query("SELECT ip, state, score, reason, last_seen FROM threats ORDER BY last_seen DESC limit 10")
+$list = $pdo->query("SELECT ip, state, score, reason, created_at FROM threats ORDER BY created_at DESC limit 10")
             ->fetchAll(PDO::FETCH_ASSOC);
 
 echo json_encode($list);
